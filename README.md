@@ -24,17 +24,35 @@ services:
 
   # --- NOTIFICATION APP SERVICE ---
   registry-webhook-receiver:
-    image: iamdockin/registry-webhook-receiver:latest
+    image: iamdockin/registry-webhook-receiver:latest # Or your new image name/tag after rebuilding
     container_name: registry-webhook-receiver
     restart: unless-stopped
     networks:
       - registry-net
-    environment: # add below in .env
+    ports: # Optional: if you need to access it directly for testing, otherwise remove if only internal
+      - "5001:5001"
+    environment:
+      # --- General Settings ---
+      - NOTIFICATION_SERVICE_TYPE=${NOTIFICATION_SERVICE_TYPE:-ntfy} # Default to ntfy if not set
+      - NOTIFICATION_PRIORITY=${NOTIFICATION_PRIORITY:-default}
+
+      # --- Ntfy Settings (only needed if NOTIFICATION_SERVICE_TYPE is 'ntfy') ---
       - NTFY_SERVER_URL=${NTFY_SERVER_URL}
       - NTFY_TOPIC=${NTFY_TOPIC}
-      - NTFY_ACCESS_TOKEN=${NTFY_ACCESS_TOKEN}
-      - NTFY_PRIORITY=${NTFY_PRIORITY:-default}
+      - NTFY_ACCESS_TOKEN=${NTFY_ACCESS_TOKEN} # Optional
+
+      # --- Gotify Settings (only needed if NOTIFICATION_SERVICE_TYPE is 'gotify') ---
+      - GOTIFY_SERVER_URL=${GOTIFY_SERVER_URL}
+      - GOTIFY_APP_TOKEN=${GOTIFY_APP_TOKEN}
+
+      # --- Discord Settings (only needed if NOTIFICATION_SERVICE_TYPE is 'discord') ---
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+
+      # --- Flask Settings ---
       - FLASK_ENV=production
+    # If you use a .env file in the same directory as your docker-compose.yml:
+    # env_file:
+    #  - .env
 ```
 
 #### Update your config.yml example below:
