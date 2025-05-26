@@ -55,7 +55,7 @@ services:
     #  - .env
 ```
 
-#### Update your config.yml example below:
+#### Update your config.yml for registry container, example below:
 
 ```
 version: 0.1
@@ -84,8 +84,27 @@ notifications:
 ```
 REGISTRY_HTTP_SECRET=some-very-long-string-here
 
-NTFY_SERVER_URL=https://ntfy.myserver.tld
-NTFY_TOPIC=my_private_registry
-NTFY_ACCESS_TOKEN=tk_xxxxxxxxxx # access token from ntfy
-NTFY_PRIORITY=default
+# --- CHOOSE ONE SERVICE ---
+NOTIFICATION_SERVICE_TYPE=ntfy # Or "gotify" or "discord"
+
+# --- GENERAL SETTINGS ---
+NOTIFICATION_PRIORITY=default # Options: min, low, default, high, max
+
+# --- NTFY SETTINGS ---
+# Required if NOTIFICATION_SERVICE_TYPE=ntfy
+NTFY_SERVER_URL=https://ntfy.sh
+NTFY_TOPIC=my_registry_events
+NTFY_ACCESS_TOKEN=your_ntfy_access_token_if_any
+
+# --- GOTIFY SETTINGS ---
+# Required if NOTIFICATION_SERVICE_TYPE=gotify
+GOTIFY_SERVER_URL=https://your-gotify-instance.com
+GOTIFY_APP_TOKEN=your_gotify_app_or_client_token
+
+# --- DISCORD SETTINGS ---
+# Required if NOTIFICATION_SERVICE_TYPE=discord
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook_id/your_webhook_token
+
+# Flask environment
+FLASK_ENV=production
 ```
