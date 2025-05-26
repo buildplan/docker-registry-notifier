@@ -28,8 +28,6 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-# Usually these files are written by a script go generate an executable file,
-# but they are often forgotten to be gitignored.
 *.manifest
 *.spec
 
