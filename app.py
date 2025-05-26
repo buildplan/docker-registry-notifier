@@ -10,7 +10,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Get ntfy configuration from environment variables
-NTFY_SERVER_URL = os.environ.get('NTFY_SERVER_URL') # e.g., https://ntfy.alisufyan.cloud
+NTFY_SERVER_URL = os.environ.get('NTFY_SERVER_URL') # e.g., https://ntfy.sh
 NTFY_TOPIC = os.environ.get('NTFY_TOPIC')           # e.g., my_registry
 NTFY_ACCESS_TOKEN = os.environ.get('NTFY_ACCESS_TOKEN')
 NTFY_PRIORITY = os.environ.get('NTFY_PRIORITY', 'default') # Eg: high, max, low, min
