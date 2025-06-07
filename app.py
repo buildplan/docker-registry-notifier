@@ -3,6 +3,7 @@ import requests
 import json
 import os
 import logging
+import time
 
 app = Flask(__name__)
 
@@ -10,8 +11,9 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # --- General Configuration ---
-NOTIFICATION_SERVICE_TYPE = os.environ.get('NOTIFICATION_SERVICE_TYPE', 'ntfy').lower() # 'ntfy', 'gotify', or 'discord'
-NOTIFICATION_PRIORITY_GENERAL = os.environ.get('NOTIFICATION_PRIORITY', 'default') # For ntfy and to be mapped for Gotify
+NOTIFICATION_SERVICE_TYPE = os.environ.get('NOTIFICATION_SERVICE_TYPE', 'ntfy').lower()
+NOTIFICATION_PRIORITY_GENERAL = os.environ.get('NOTIFICATION_PRIORITY', 'default')
+DEBOUNCE_SECONDS = int(os.environ.get('DEBOUNCE_SECONDS', 10))
 
 # --- ntfy Configuration ---
 NTFY_SERVER_URL = os.environ.get('NTFY_SERVER_URL')
@@ -19,13 +21,16 @@ NTFY_TOPIC = os.environ.get('NTFY_TOPIC')
 NTFY_ACCESS_TOKEN = os.environ.get('NTFY_ACCESS_TOKEN')
 
 # --- Gotify Configuration ---
-GOTIFY_SERVER_URL = os.environ.get('GOTIFY_SERVER_URL') # e.g., http://gotify.example.com
-GOTIFY_APP_TOKEN = os.environ.get('GOTIFY_APP_TOKEN')  # Token for your Gotify application
+GOTIFY_SERVER_URL = os.environ.get('GOTIFY_SERVER_URL')
+GOTIFY_APP_TOKEN = os.environ.get('GOTIFY_APP_TOKEN')
 
 # --- Discord Configuration ---
 DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL')
 
-# --- Helper function to map general priority to Gotify's numeric priority ---
+# --- In-memory cache for debouncing ---
+NOTIFICATION_CACHE = {}
+
+# --- Helper function to map priority for Gotify ---
 def map_priority_to_gotify(priority_str):
     mapping = {
         "min": 1,
@@ -34,7 +39,7 @@ def map_priority_to_gotify(priority_str):
         "high": 8,
         "max": 10
     }
-    return mapping.get(priority_str.lower(), 5) # Default to 5 if not found
+    return mapping.get(priority_str.lower(), 5)
 
 # --- Notification Sending Functions ---
 
@@ -53,8 +58,7 @@ def send_ntfy_notification(title, message_lines, manifest_url, priority):
     if NTFY_ACCESS_TOKEN:
         headers["Authorization"] = f"Bearer {NTFY_ACCESS_TOKEN}"
     if manifest_url:
-        headers["Click"] = f"view, {manifest_url}, Open Manifest URL"
-        # headers["Actions"] = f"view, Open Manifest, {manifest_url}" # Alternative action
+        headers["Actions"] = f"view, Open Manifest, {manifest_url}"
 
     try:
         response = requests.post(
@@ -78,7 +82,7 @@ def send_gotify_notification(title, message_lines, manifest_url, priority_str):
 
     full_message = "\n".join(message_lines)
     if manifest_url:
-        full_message += f"\n\nManifest: {manifest_url}" # Gotify typically uses Markdown in messages
+        full_message += f"\n\n[Open Manifest]({manifest_url})"
 
     app.logger.info(f"Preparing Gotify notification: Title='{title}', Message='{full_message}'")
 
@@ -87,20 +91,17 @@ def send_gotify_notification(title, message_lines, manifest_url, priority_str):
         "title": title,
         "message": full_message,
         "priority": gotify_priority,
-    }
-    if manifest_url: # Add clickable link if Gotify client supports it
-        payload["extras"] = {
-            "client::notification": {
-                "click": {"url": manifest_url}
+        "extras": {
+            "client::display": {
+                "contentType": "text/markdown"
             }
         }
-
+    }
 
     headers = {
         "X-Gotify-Key": GOTIFY_APP_TOKEN,
         "Content-Type": "application/json"
     }
-    # Alternative: send token as query param: f"{GOTIFY_SERVER_URL.rstrip('/')}/message?token={GOTIFY_APP_TOKEN}"
 
     try:
         response = requests.post(
@@ -122,12 +123,14 @@ def send_discord_notification(title, message_lines, repository, tag, actor_name,
         app.logger.error("Discord not configured (DISCORD_WEBHOOK_URL missing).")
         return False
 
-    # Construct a Discord embed
     embed = {
         "title": title,
-        "color": 0x0099FF, # Blue color, you can change this
+        "color": 0x0099FF,
         "fields": []
     }
+    if manifest_url:
+        embed["url"] = manifest_url
+
     if repository:
         embed["fields"].append({"name": "Repository", "value": repository, "inline": True})
     if tag:
@@ -135,20 +138,10 @@ def send_discord_notification(title, message_lines, repository, tag, actor_name,
     if actor_name:
         embed["fields"].append({"name": "Pushed by", "value": actor_name, "inline": True})
     if digest:
-        embed["fields"].append({"name": "Digest", "value": f"{digest[:12]}...", "inline": True})
-
-    description_parts = [line for line in message_lines if not (line.startswith("Repository:") or line.startswith("Tag:") or line.startswith("Pushed by:") or line.startswith("Digest:"))]
-    embed["description"] = "\n".join(description_parts)
-
-
-    if manifest_url:
-        embed["fields"].append({"name": "Manifest URL", "value": f"[Link]({manifest_url})", "inline": False})
-        # You could also make the title a link if preferred:
-        # embed["url"] = manifest_url
+        embed["fields"].append({"name": "Digest", "value": f"`{digest}`", "inline": False})
 
     payload = {
-        "username": "Registry Notifier", # You can customize this
-        # "content": f"**{title}**", # Optional: for a simple message above the embed
+        "username": "Registry Notifier",
         "embeds": [embed]
     }
 
@@ -169,6 +162,7 @@ def send_discord_notification(title, message_lines, repository, tag, actor_name,
 
 @app.route('/notify', methods=['POST'])
 def registry_notification_handler():
+    # --- Start: Full Configuration Checks from Original Script ---
     if NOTIFICATION_SERVICE_TYPE == 'ntfy' and (not NTFY_SERVER_URL or not NTFY_TOPIC):
         app.logger.error("Ntfy service selected but not configured.")
         return jsonify({"status": "error", "message": "Receiver (ntfy) not configured"}), 500
@@ -181,6 +175,7 @@ def registry_notification_handler():
     elif NOTIFICATION_SERVICE_TYPE not in ['ntfy', 'gotify', 'discord']:
         app.logger.error(f"Invalid NOTIFICATION_SERVICE_TYPE: {NOTIFICATION_SERVICE_TYPE}")
         return jsonify({"status": "error", "message": "Invalid notification service type configured"}), 500
+    # --- End: Full Configuration Checks ---
 
     if not request.is_json:
         app.logger.warning("Received non-JSON request")
@@ -195,39 +190,45 @@ def registry_notification_handler():
             target = event.get('target', {})
             repository = target.get('repository')
             tag = target.get('tag')
-            actor_name = event.get('actor', {}).get('name')
-            digest = target.get('digest')
-            manifest_url = target.get('url')
 
-            if action == 'push' and repository:
-                title = f"Image Pushed: {repository}"
-                if tag:
-                    title += f":{tag}"
+            if action == 'push' and repository and tag:
+                # Debounce logic
+                cache_key = f"{repository}:{tag}"
+                current_time = time.time()
 
-                message_lines = []
-                if tag:
-                    message_lines.append(f"Tag: {tag}")
-                message_lines.append(f"Repository: {repository}")
+                if cache_key in NOTIFICATION_CACHE:
+                    last_notified_time = NOTIFICATION_CACHE[cache_key]
+                    if (current_time - last_notified_time) < DEBOUNCE_SECONDS:
+                        app.logger.info(f"Skipping duplicate notification for {cache_key} within debounce period.")
+                        continue
+
+                NOTIFICATION_CACHE[cache_key] = current_time
+
+                # Extract details for notification
+                actor_name = event.get('actor', {}).get('name')
+                digest = target.get('digest')
+                manifest_url = target.get('url')
+                title = f"Image Pushed: {repository}:{tag}"
+                message_lines = [f"Repository: {repository}", f"Tag: {tag}"]
                 if actor_name:
                     message_lines.append(f"Pushed by: {actor_name}")
                 if digest:
-                    message_lines.append(f"Digest: {digest[:12]}...")
+                    message_lines.append(f"Digest: {digest}")
 
-                # Dispatch to the appropriate notification service
+                # Dispatch notification
                 if NOTIFICATION_SERVICE_TYPE == 'ntfy':
                     send_ntfy_notification(title, message_lines, manifest_url, NOTIFICATION_PRIORITY_GENERAL)
                 elif NOTIFICATION_SERVICE_TYPE == 'gotify':
                     send_gotify_notification(title, message_lines, manifest_url, NOTIFICATION_PRIORITY_GENERAL)
                 elif NOTIFICATION_SERVICE_TYPE == 'discord':
-                    # Discord function takes more granular data for better embed formatting
                     send_discord_notification(title, message_lines, repository, tag, actor_name, digest, manifest_url)
     else:
         app.logger.info("Webhook received, but no events to process.")
 
-
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
+    # --- Start: Full Startup Checks from Original Script ---
     service_configured = False
     if NOTIFICATION_SERVICE_TYPE == 'ntfy':
         if NTFY_SERVER_URL and NTFY_TOPIC:
@@ -243,15 +244,16 @@ if __name__ == '__main__':
             app.logger.error("FATAL: Gotify is the selected service, but GOTIFY_SERVER_URL or GOTIFY_APP_TOKEN environment variables are not set.")
     elif NOTIFICATION_SERVICE_TYPE == 'discord':
         if DISCORD_WEBHOOK_URL:
-            app.logger.info(f"Discord service configured. Notifications will be sent via webhook.")
+            app.logger.info("Discord service configured. Notifications will be sent via webhook.")
             service_configured = True
         else:
             app.logger.error("FATAL: Discord is the selected service, but DISCORD_WEBHOOK_URL environment variable is not set.")
     else:
         app.logger.error(f"FATAL: Invalid NOTIFICATION_SERVICE_TYPE '{NOTIFICATION_SERVICE_TYPE}' configured. Choose 'ntfy', 'gotify', or 'discord'.")
+    # --- End: Full Startup Checks ---
 
     if not service_configured:
         exit(1)
 
-    app.logger.info(f"Webhook receiver starting. Active notification service: {NOTIFICATION_SERVICE_TYPE.upper()}")
+    app.logger.info(f"Webhook receiver starting. Active service: {NOTIFICATION_SERVICE_TYPE.upper()}. Debounce period: {DEBOUNCE_SECONDS}s")
     app.run(host='0.0.0.0', port=5001, debug=False)
