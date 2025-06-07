@@ -117,7 +117,7 @@ services:
 With your `config.yml`, `.env`, and `docker-compose.yml` files in the same directory, simply run:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Your registry is now running and will send notifications via the notifier service whenever a new image is pushed\!
