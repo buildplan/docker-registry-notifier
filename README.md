@@ -103,7 +103,7 @@ services:
   # --- Notification Service ---
   registry-notifier:
     # Replace with your own image if you build it yourself
-    image: your-username/registry-notifier:latest
+    image: iamdockin/registry-webhook-receiver:latest
     container_name: registry-notifier
     restart: unless-stopped
     networks:
