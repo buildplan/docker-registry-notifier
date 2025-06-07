@@ -2,7 +2,7 @@
 
 A lightweight, multi-architecture webhook receiver to get notifications from your private Docker Registry. It listens for image push events and sends clean, debounced alerts to your favorite notification service.
 
-This image is designed to be used alongside the official [`registry:3`](https://hub.docker.com/_/registry)) image.
+This image is designed to be used alongside the official [`registry:3`](https://hub.docker.com/_/registry) image.
 
 ## Key Features
 
@@ -82,8 +82,6 @@ This `docker-compose.yml` will run both your Docker Registry and the new notifie
 **Example `docker-compose.yml`:**
 
 ```yaml
-version: "3.8"
-
 networks:
   registry-net:
     driver: bridge
@@ -91,7 +89,7 @@ networks:
 services:
   # --- Docker Registry ---
   registry:
-    image: registry:2
+    image: registry:3
     container_name: registry_service
     restart: unless-stopped
     volumes:
