@@ -227,6 +227,15 @@ def registry_notification_handler():
 
     return jsonify({"status": "success"}), 200
 
+# Health check
+@app.route('/health', methods=['GET'])
+def health_check():
+    """
+    Health check endpoint for container orchestrator.
+    """
+    return jsonify({"status": "ok"}), 200
+
+
 if __name__ == '__main__':
     # --- Start: Full Startup Checks ---
     service_configured = False

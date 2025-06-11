@@ -46,5 +46,9 @@ ENV PATH="/app/venv/bin:$PATH"
 # Expose the port
 EXPOSE 5001
 
+# Health check to ensure the application is responsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5001/health || exit 1
+
 # Define the command to run the application
 CMD ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:5001", "app:app"]
