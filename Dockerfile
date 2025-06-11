@@ -22,6 +22,9 @@ COPY app.py .
 # Start fresh from the same slim base image
 FROM python:3.9-slim
 
+# Install curl for the HEALTHCHECK command and then clean up apt cache
+RUN apt-get update && apt-get install -y curl --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user for security
 RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 --ingroup appgroup appuser
