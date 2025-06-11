@@ -162,7 +162,7 @@ def send_discord_notification(title, message_lines, repository, tag, actor_name,
 
 @app.route('/notify', methods=['POST'])
 def registry_notification_handler():
-    # --- Start: Full Configuration Checks from Original Script ---
+    # --- Start: Full Configuration Checks ---
     if NOTIFICATION_SERVICE_TYPE == 'ntfy' and (not NTFY_SERVER_URL or not NTFY_TOPIC):
         app.logger.error("Ntfy service selected but not configured.")
         return jsonify({"status": "error", "message": "Receiver (ntfy) not configured"}), 500
@@ -228,7 +228,7 @@ def registry_notification_handler():
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
-    # --- Start: Full Startup Checks from Original Script ---
+    # --- Start: Full Startup Checks ---
     service_configured = False
     if NOTIFICATION_SERVICE_TYPE == 'ntfy':
         if NTFY_SERVER_URL and NTFY_TOPIC:
