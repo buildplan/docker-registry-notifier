@@ -1,6 +1,6 @@
 # ---- Stage 1: The Builder ----
 # We name this stage 'builder' so we can reference it later.
-FROM python:3.9-slim as builder
+FROM python:3.9-slim AS builder
 
 WORKDIR /app
 
