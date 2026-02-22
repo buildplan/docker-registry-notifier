@@ -1,6 +1,6 @@
 # ---- Stage 1: The Builder ----
 # We name this stage 'builder' so we can reference it later.
-FROM python:3.9-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY app.py .
 
 # ---- Stage 2: The Final Image ----
 # Start fresh from the same slim base image
-FROM python:3.9-slim
+FROM python:3.14-slim
 
 # Install curl for the HEALTHCHECK command and then clean up apt cache
 RUN apt-get update && apt-get install -y curl --no-install-recommends && rm -rf /var/lib/apt/lists/*
