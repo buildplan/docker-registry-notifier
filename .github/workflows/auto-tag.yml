@@ -33,3 +33,11 @@ jobs:
           DEFAULT_BUMP: patch
           TAG_PREFIX: v
           BRANCH_HISTORY: compare
+
+      - name: Create a GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          generateReleaseNotes: true
+          token: ${{ secrets.PAT_TOKEN }}
