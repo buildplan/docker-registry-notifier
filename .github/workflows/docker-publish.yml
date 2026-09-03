@@ -2,8 +2,10 @@ name: Docker image CI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ "main", "dev-*", "dev" ]
+    tags: [ 'v*.*.*' ]
+    paths-ignore: [ '**.md', '.gitignore', 'renovate.json', 'LICENSE', 'docs/**', 'docker-compose.yml', 'compose.yml' ]
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
