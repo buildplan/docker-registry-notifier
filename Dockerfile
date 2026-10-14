@@ -1,5 +1,5 @@
 # ---- Stage 1: The Builder ----
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
+FROM python:3.15-alpine@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928 AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY app.py .
 
 
 # ---- Stage 2: The Final Image ----
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72
+FROM python:3.15-alpine@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
 
 # Create a non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
